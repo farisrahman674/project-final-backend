@@ -6,6 +6,7 @@ import productRouter from "./routes/product-route";
 import orderRoute from "./routes/order-route";
 import pointRoutes from "./routes/point-route";
 import profileRoute from "./routes/profile-route";
+import cartroute from "./routes/cart-route";
 import cors from "cors";
 import path from "path";
 
@@ -20,6 +21,7 @@ app.use("/product", productRouter);
 app.use("/order", orderRoute);
 app.use("/point", pointRoutes);
 app.use("/profile", profileRoute);
+app.use("/cart", cartroute);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

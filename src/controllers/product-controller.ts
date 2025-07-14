@@ -150,6 +150,57 @@ export const getAllProducts = async (req: Request, res: Response) => {
   }
 };
 
+export const getProductById = async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+
+  if (isNaN(id)) {
+    res.status(400).json({
+      status: "fail",
+      code: 400,
+      message: "ID produk tidak valid",
+    });
+    return;
+  }
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: {
+        id_product: id,
+      },
+      select: {
+        id_product: true,
+        name: true,
+        price: true,
+        image: true,
+        description: true,
+      },
+    });
+
+    if (!product) {
+      res.status(404).json({
+        status: "fail",
+        code: 404,
+        message: "Produk tidak ditemukan",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Detail produk berhasil diambil",
+      data: product,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Gagal mengambil produk",
+      details: [error.message],
+    });
+  }
+};
+
 export const softDeleteProduct = async (req: Request, res: Response) => {
   const { id } = req.params;
 

@@ -7,6 +7,7 @@ import {
   softDeleteProduct,
   restoreProduct,
   updateProductImage,
+  getProductById,
 } from "../controllers/product-controller";
 import { upload } from "../middlewares/upload-middleware";
 import { validate } from "../middlewares/product-middleware";
@@ -34,6 +35,9 @@ router.patch(
 
 // user & admin bisa lihat produk
 router.get("/", getAllProducts);
+
+// Detail Product
+router.get("/:id", getProductById);
 
 // PATCH /products/:id/delete → admin only
 router.patch(
