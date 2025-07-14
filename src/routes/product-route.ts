@@ -33,7 +33,7 @@ router.patch(
 );
 
 // user & admin bisa lihat produk
-router.get("/", authenticate, getAllProducts);
+router.get("/", getAllProducts);
 
 // PATCH /products/:id/delete → admin only
 router.patch(

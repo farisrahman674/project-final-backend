@@ -95,7 +95,7 @@ export const updateProductImage = async (req: Request, res: Response) => {
 export const getAllProducts = async (req: Request, res: Response) => {
   const search = req.query.search?.toString() || "";
   const sortBy = req.query.sortBy?.toString() || "createdAt"; // default
-  const order = req.query.order === "asc" ? "asc" : "desc"; // default
+  const order = req.query.order === "desc" ? "asc" : "desc"; // default
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const skip = (page - 1) * limit;
@@ -109,6 +109,7 @@ export const getAllProducts = async (req: Request, res: Response) => {
         },
       },
       select: {
+        id_product: true,
         name: true,
         price: true,
         image: true,
