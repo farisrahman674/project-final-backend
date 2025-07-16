@@ -7,11 +7,12 @@ import orderRoute from "./routes/order-route";
 import pointRoutes from "./routes/point-route";
 import profileRoute from "./routes/profile-route";
 import cartroute from "./routes/cart-route";
+import corsOptions from "./middlewares/corsOptions";
 import cors from "cors";
 import path from "path";
 
 const app = express();
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));

@@ -10,7 +10,7 @@ router.patch(
   "/update",
   authenticate,
   authorizeRole("user", "admin"),
-  upload.single("image"),
+  upload.single("profile"),
   uploadProfileImage
 );
 

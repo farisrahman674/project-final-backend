@@ -6,7 +6,7 @@ import {
   getAllProducts,
   softDeleteProduct,
   restoreProduct,
-  updateProductImage,
+  updateProduct,
   getProductById,
 } from "../controllers/product-controller";
 import { upload } from "../middlewares/upload-middleware";
@@ -24,13 +24,13 @@ router.post(
   createProduct
 );
 
-//update image
+//update product
 router.patch(
-  "/:id/image",
+  "/:id",
   authenticate,
   authorizeRole("admin"),
   upload.single("image"),
-  updateProductImage
+  updateProduct
 );
 
 // user & admin bisa lihat produk

@@ -47,6 +47,7 @@ model Order {
   product   Product  @relation(fields: [productId], references: [id_product])
   quantity  Int
   total     Int
+  status    String   @default("pending")
   createdAt DateTime @default(now())
   deletedAt DateTime?
 }

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../prisma/client";
+import path from "path";
+import fs from "fs";
 
 export const createProduct = async (req: Request, res: Response) => {
   const { name, price } = req.body;
@@ -42,18 +44,9 @@ export const createProduct = async (req: Request, res: Response) => {
   }
 };
 
-export const updateProductImage = async (req: Request, res: Response) => {
+export const updateProduct = async (req: Request, res: Response) => {
   const { id } = req.params;
-
-  if (!req.file) {
-    res.status(400).json({
-      status: "error",
-      code: 400,
-      message: "Gambar baru wajib diupload",
-      details: ["Field image tidak boleh kosong"],
-    });
-    return;
-  }
+  const { name, price } = req.body;
 
   try {
     const product = await prisma.product.findUnique({
@@ -69,24 +62,41 @@ export const updateProductImage = async (req: Request, res: Response) => {
       return;
     }
 
+    let updatedImage = product.image;
+
+    // kalau ada file baru, update & hapus file lama
+    if (req.file) {
+      updatedImage = req.file.filename;
+
+      // hapus file lama
+      if (product.image) {
+        const oldPath = path.join("public/images", product.image);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+    }
+
     const updated = await prisma.product.update({
       where: { id_product: Number(id) },
       data: {
-        image: req.file.filename,
+        name: name ?? product.name,
+        price: price ? Number(price) : product.price,
+        image: updatedImage,
       },
     });
 
     res.status(200).json({
       status: "success",
       code: 200,
-      message: "Gambar produk berhasil diperbarui",
+      message: "Produk berhasil diperbarui",
       data: updated,
     });
   } catch (error: any) {
     res.status(500).json({
       status: "error",
       code: 500,
-      message: "Gagal memperbarui gambar",
+      message: "Gagal memperbarui produk",
       details: [error.message],
     });
   }

@@ -1,6 +1,30 @@
 import prisma from "./client";
+import bcrypt from "bcrypt";
 
 async function main() {
+  // ✅ Hash password
+  const hashedPassword = await bcrypt.hash("123456", 10);
+
+  // ✅ Insert users
+  await prisma.user.createMany({
+    data: [
+      {
+        email: "admin@gmail.com",
+        password: hashedPassword,
+        role: "admin",
+        profile: null,
+      },
+      {
+        email: "ayaka@gmail.com",
+        password: hashedPassword,
+        role: "user",
+        profile: null,
+      },
+    ],
+    skipDuplicates: true, // biar ga error kalau di-seed ulang
+  });
+
+  // ✅ Insert products
   await prisma.product.createMany({
     data: [
       {
@@ -73,6 +97,7 @@ async function main() {
       },
     ],
   });
+
   console.log("✅ Seed berhasil ditambahkan!");
 }
 

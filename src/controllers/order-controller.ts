@@ -7,89 +7,103 @@ export const createOrder = async (req: Request, res: Response) => {
   const userId = Number(res.locals.user?.id);
   const { error, value } = orderSchema.validate(req.body);
 
-  try {
-    const { productId, quantity } = value;
-    // Validasi input
-    if (error) {
-      res.status(400).json({
-        status: "error",
-        code: 400,
-        message: "Data order tidak valid",
-        details: error.details.map((err) => err.message),
-      });
-      return;
-    }
-
-    const product = await prisma.product.findUnique({
-      where: { id_product: productId },
+  if (error) {
+    res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "Data order tidak valid",
+      details: error.details.map((err) => err.message),
     });
+    return;
+  }
+  const { items } = value;
 
-    if (!product || product.deletedAt) {
-      res.status(404).json({
-        status: "error",
-        code: 400,
-        message: "Produk tidak ditemukan",
+  try {
+    const ordersToCreate = [];
+    let totalPoints = 0;
+
+    for (const item of items) {
+      const product = await prisma.product.findUnique({
+        where: { id_product: item.productId },
       });
-      return;
+
+      if (!product || product.deletedAt) {
+        res.status(404).json({
+          status: "error",
+          code: 404,
+          message: `Produk dengan ID ${item.productId} tidak ditemukan`,
+        });
+        return;
+      }
+
+      const total = product.price * item.quantity;
+      const point = Math.floor(total / POINT_RATE);
+      totalPoints += point;
+
+      ordersToCreate.push({
+        data: {
+          userId,
+          productId: item.productId,
+          quantity: item.quantity,
+          total,
+          status: "pending",
+        },
+      });
     }
 
-    const total = product.price * quantity;
-    const point = Math.floor(total / POINT_RATE);
+    // Simpan semua order sekaligus
+    const createdOrders = await prisma.$transaction(
+      ordersToCreate.map((order) => prisma.order.create(order))
+    );
 
-    // ⛓️ Prisma Transaction
-    const [order, updatedUser] = await prisma.$transaction([
-      prisma.order.create({
-        data: {
-          productId,
-          userId,
-          quantity,
-          total,
-        },
-        include: {
-          user: {
-            select: {
-              email: true,
-            },
+    // Buat auto-confirm untuk semua
+    setTimeout(async () => {
+      try {
+        const pendingOrders = await prisma.order.findMany({
+          where: {
+            userId,
+            status: "pending",
+            id_order: { in: createdOrders.map((o) => o.id_order) },
           },
-          product: {
-            select: {
-              name: true,
-              price: true,
-            },
-          },
-        },
-      }),
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          point: { increment: point },
-        },
-      }),
-    ]);
-    const formattedOrder = {
-      email: order.user.email,
-      product: order.product.name,
-      quantity: order.quantity,
-      price: order.product.price,
-      total: order.total,
-    };
+        });
+
+        if (pendingOrders.length > 0) {
+          await prisma.$transaction([
+            ...pendingOrders.map((o) =>
+              prisma.order.update({
+                where: { id_order: o.id_order },
+                data: { status: "success" },
+              })
+            ),
+            prisma.user.update({
+              where: { id: userId },
+              data: {
+                point: { increment: totalPoints },
+              },
+            }),
+          ]);
+        }
+      } catch (err) {
+        console.error("Gagal auto-success:", err);
+      }
+    }, 60000);
+
     res.status(201).json({
       status: "success",
       code: 201,
-      message: "Order berhasil dibuat",
+      message: "Semua order berhasil dibuat",
       data: {
-        order: formattedOrder,
-        poinDidapat: point,
-        totalPembayaran: total,
-        totalPointUser: updatedUser.point,
+        jumlahOrder: createdOrders.length,
+        poinDidapat: totalPoints,
+        status: "pending",
       },
     });
-  } catch (error: any) {
+  } catch (err: any) {
     res.status(500).json({
       status: "error",
       code: 500,
       message: "Gagal membuat order",
-      details: [error.message],
+      details: [err.message],
     });
   }
 };
@@ -101,7 +115,7 @@ export const getMyOrders = async (req: Request, res: Response) => {
     const orders = await prisma.order.findMany({
       where: {
         userId,
-        deletedAt: null, // Soft deleted tidak ditampilkan
+        status: { not: "cancelled" }, // Soft deleted tidak ditampilkan
       },
       include: {
         user: {
@@ -109,18 +123,27 @@ export const getMyOrders = async (req: Request, res: Response) => {
             email: true,
           },
         },
-        product: true, // Biar kelihatan nama/price produk
+        product: {
+          select: {
+            name: true,
+            price: true,
+            image: true, // ✅ Tambahkan ini
+          },
+        }, // Biar kelihatan nama/price produk
       },
       orderBy: {
         createdAt: "desc", // Terbaru duluan
       },
     });
     const formattedOrders = orders.map((order) => ({
+      id: order.id_order,
       email: order.user.email,
+      image: order.product.image,
       product: order.product.name,
       quantity: order.quantity,
       price: order.product.price,
       total: order.total,
+      status: order.status,
     }));
     res.status(200).json({
       status: "success",
@@ -142,7 +165,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
   try {
     const orders = await prisma.order.findMany({
       where: {
-        deletedAt: null,
+        status: { not: "cancelled" },
       },
       include: {
         user: {
@@ -164,11 +187,13 @@ export const getAllOrders = async (req: Request, res: Response) => {
       },
     });
     const formattedOrders = orders.map((order) => ({
+      id: order.id_order,
       email: order.user.email,
       product: order.product.name,
       quantity: order.quantity,
       price: order.product.price,
       total: order.total,
+      status: order.status,
     }));
     res.status(200).json({
       status: "success",
@@ -195,7 +220,7 @@ export const cancelOrder = async (req: Request, res: Response) => {
       where: {
         id_order: orderId,
         userId: userId,
-        deletedAt: null,
+        status: { not: "cancelled" },
       },
     });
 
@@ -208,17 +233,35 @@ export const cancelOrder = async (req: Request, res: Response) => {
       return;
     }
 
+    if (existingOrder.status === "cancelled") {
+      res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Order sudah dibatalkan sebelumnya",
+      });
+      return;
+    }
+
+    if (existingOrder.status === "success") {
+      res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Order sudah berhasil dan tidak bisa dibatalkan",
+      });
+      return;
+    }
+
     await prisma.order.update({
       where: { id_order: orderId },
       data: {
-        deletedAt: new Date(),
+        status: "cancelled",
       },
     });
 
     res.status(200).json({
       status: "success",
       code: 200,
-      message: "Order berhasil dibatalkan (soft delete)",
+      message: "Order berhasil dibatalkan",
     });
   } catch (error: any) {
     res.status(500).json({

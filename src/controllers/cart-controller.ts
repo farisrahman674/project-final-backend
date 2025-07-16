@@ -13,6 +13,7 @@ export const getMyCart = async (req: Request, res: Response) => {
       include: {
         product: true, // join product
       },
+      orderBy: { createdAt: "asc" },
     });
 
     res.status(200).json({
